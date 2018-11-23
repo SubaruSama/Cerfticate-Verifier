@@ -46,7 +46,7 @@ class Verifier:
         return self.cert_dumped
 
     
-    def get_extension(self):
+    def get_extension_AIA(self):
         '''
         This method return informations about the AIA - Authority Information Access
         With this, we can extract the link of the Sub CA.
@@ -63,7 +63,7 @@ class Verifier:
         Method that uses regex to extract the link from the AIA - Authority Information Access
         and download the certificate of the Sub CA.
         '''
-        self.url_string = self.get_extension()
+        self.url_string = self.get_extension_AIA()
         # Maaaan i dont know... I think it will break with other certificates
         self.pattern = re.compile(r'(http:\/\/)+?[a-z]+\.[a-z]+\.[a-z]+\/\w+\.crt')
         self.match = self.pattern.search(self.url_string)
@@ -79,6 +79,45 @@ class Verifier:
         self.get = requests.get(self.get_link_from_extension(), allow_redirects=True)
         open('Sub-CA.crt', 'wb').write(self.get.content)
 
+
+    def __load_subCertificate(self):
+        '''
+        The certificate of the SubCa is in binary mode.
+        So when we open, we need to pass the 'rb' argument on the
+        open function.
+        '''
+        self.file = 'Sub-CA.crt'
+        self.__cert_subCA = OpenSSL.crypto.load_certificate(
+                                OpenSSL.crypto.FILETYPE_ASN1, 
+                                open(self.file, 'rb').read()
+        )
+
+        return self.__cert_subCA
+
+
+    def get_extension_AuthorityKey(self):
+        self.authKey = self.__load_subCertificate().get_extension(7).__str__()
+        # We need to normalize the string
+        self.authKey = self.authKey.replace(':', '').replace('keyid', '').lower()
+
+        return self.authKey
+
+
     def check_SubCA_Root(self):
-        # TODO
-        return None
+        # load the Root CA
+        # check:
+            # if the get_extension_AuthorityKey is the same as the Root CA Key Authority, then i can trust
+            # else, i cant trust
+        self.RootCA_name = 'DigiCert High Assurance EV Root CA.cer'
+        self.RootCA = OpenSSL.crypto.load_certificate(
+                        OpenSSL.crypto.FILETYPE_PEM,
+                        open(self.RootCA_name).read()
+        )
+        # get the auth key of the root ca
+        self.authKey_RootCA = self.RootCA.get_extension(3)
+        self.authKey_RootCA = self.authKey_RootCA.__str__().replace(':', '').replace('keyid', '').lower()
+
+        if self.get_extension_AuthorityKey() == self.authKey_RootCA:
+            return 'I can trust this certificate'
+        else:
+            return 'I can\'t trust this certificate'
