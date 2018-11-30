@@ -1,5 +1,4 @@
 import OpenSSL
-import argparse
 import re
 import requests
 
@@ -12,13 +11,14 @@ Arguments to add:
 
 class Verifier:
 
-    def __init__(self, path):
+    def __init__(self, path, path_rootca):
         '''
         Constructor of the class. Every instance of the class
         will need to be initialized with a given parameter, poiting
         to the certificate.
         '''
         self.path = path
+        self.path_rootca = path_rootca
 
 
     def __load_certificate(self):
@@ -108,7 +108,7 @@ class Verifier:
         # check:
             # if the get_extension_AuthorityKey is the same as the Root CA Key Authority, then i can trust
             # else, i cant trust
-        self.RootCA_name = 'DigiCert High Assurance EV Root CA.cer'
+        self.RootCA_name = self.path_rootca
         self.RootCA = OpenSSL.crypto.load_certificate(
                         OpenSSL.crypto.FILETYPE_PEM,
                         open(self.RootCA_name).read()
